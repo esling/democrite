@@ -13,14 +13,14 @@ A noter que l'algorithme ne **rejette aucun message**, c'est a dire qu'il n'effe
 
 De plus il faut aussi souligner le fait que l'analyse a été fait sur le canal de chat le moins thématique et le plus désorganisé possible. Il suffit alors d'imaginer ce que pourrait amener l'application d'une telle analyse sur des données un tant soit peu organisée et thématique.
 
-**Résilience temporelle** - L'avantage d'un tel algorithme est qu'il n'a pas de Rolex (oui il a raté sa vie), cela lui permet donc de faire des liens entre idées quel que soit leur écart temporel.\\
+**Résilience temporelle** - L'avantage d'un tel algorithme est qu'il n'a pas de Rolex (oui il a raté sa vie), cela lui permet donc de faire des liens entre idées quel que soit leur écart temporel.
 ![screenshot](screenshots/temporel.png "")
 
-**Thématique linguistique** - L'algorithme peut aussi descendre à un plus bas niveau et construire des espaces de **thématiques** en analysant cette fois uniquement des fragments de phrase.\\
+**Thématique linguistique** - L'algorithme peut aussi descendre à un plus bas niveau et construire des espaces de **thématiques** en analysant cette fois uniquement des fragments de phrase.
 ![screenshot](screenshots/thematique.png "")
 
-**Résumé automatique** - Un autre aspect de ces familles d'analyse est d'essayer d'effectuer un résumé automatique d'un ensemble d'avis ou d'une conversation entière.\\
-![screenshot](screenshots/video.png "")
+**Résumé automatique** - Un autre aspect de ces familles d'analyse est d'essayer d'effectuer un résumé automatique d'un ensemble d'avis ou d'une conversation entière.
+![screenshot](screenshots/summary.png "")
 
 ## Explications techniques
 **Democrite** est basé sur un ensemble d'algorithmes d'*apprentissage profond* (*deep learning*) venant du champ de recherche du *Natural Language Processing*. Il se base ainsi sur
