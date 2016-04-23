@@ -61,6 +61,8 @@ Les statistiques bas niveau de fréquence de mots (hashtable de base), est toujo
 
 |   Raw    | Filter 1 | Filter 2 |
 |----------|----------|----------|
+|  # |  m.  | # | m. | # | m. |
+|-----|----|-----|----|-----|----|
 |1877 | the|153|will|120|people|
 |1129 | to |120|people|67|movement|
 |872  | of |98|would|66|France|
