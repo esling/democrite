@@ -59,9 +59,7 @@ A noter que l'algorithme ne **rejette aucun message**, c'est a dire qu'il n'effe
 ### Niveau -1 = Shitty old school word-based statistics (Wordclouds)
 Les statistiques bas niveau de fréquence de mots (hashtable de base), est toujours très informative ...
 
-|   Raw    | Filter 1 | Filter 2 |
-|----------|----------|----------|
-|  # |  m.  | # | m. | # | m. |
+|  # |  Raw  | # | F1 | # | F2 |
 |-----|----|-----|----|-----|----|
 |1877 | the|153|will|120|people|
 |1129 | to |120|people|67|movement|
