@@ -45,16 +45,32 @@ while ischar(tline)
 end
 fclose(fID);
 fclose(fIDExt);
+%% Re-parse through extended version
+fID = fopen('traducted_extended.txt', 'r', 'n', 'UTF-8');
+tline = fgetl(fID);
+% Data structures
+messages = {};
+% Retrieve all messages
+while ischar(tline)
+    messages = [messages, tline];
+    tline = fgetl(fID);
+end
+fclose(fID);
 %% Final processed input
 fID = fopen('input.txt', 'w', 'n', 'UTF-8');
 fIDs = fopen('sentences.txt', 'w', 'n', 'UTF-8');
 fIDl = fopen('labels.txt', 'w', 'n', 'UTF-8');
+fIDt = fopen('parseStanfordTree.sh', 'w');
 % Create binomial combinatory distribution of sentences
 for m1 = 1:(length(messages)-1)
     fprintf('Processing message %d\n', m1);
     if (length(messages{m1}) < 64)
         continue;
     end
+    fIDc = fopen(['output/sentences_' num2str(m1) '.txt'], 'w', 'n', 'UTF-8');
+    fprintf(fIDc, '%s\n', messages{m1});
+    fclose(fIDc);
+    fprintf(fIDt, 'paraphrases/stanford-parser-full-2015-12-09/lexparser.sh output/sentences_%d.txt -maxLength 512 -Xmx8192m > output/parsed_%d.txt\n', m1, m1);
     for m2 = (m1+1):length(messages)
         if (length(messages{m2}) < 64)
             continue;
@@ -65,6 +81,37 @@ for m1 = 1:(length(messages)-1)
     end
 end
 fclose(fID);
+fclose(fIDs);
+%%
+fIDt = fopen('parseStanfordConcat.sh', 'w');
+fprintf(fIDt, 'touch parsed.txt\n');
+for m1 = 1:(length(messages)-1)
+    if (length(messages{m1}) < 64), continue; end
+    for m2 = (m1+1):length(messages)
+        if (length(messages{m2}) < 64), continue; end
+        fprintf(fIDt, 'cat output/parsed_%d.txt >> parsed.txt\n', m1);
+        fprintf(fIDt, 'cat output/parsed_%d.txt >> parsed.txt\n', m2);
+    end
+end
+fclose(fIDt);
+return;
+%% Reprocessed messages for thematic analysis (+P/-P analysis)
+for win = [5,7,11]
+    for step = [3,5]
+        fID = fopen(['messages_' num2str(win) '_' num2str(step) '.txt'], 'w');
+        for m1 = 1:(length(messages))
+            if (length(messages{m1}) < 64), continue; end
+            curMsg = strsplit(messages{m1}, ' ');
+            for iS = 1:step:(length(curMsg)-win)
+                for iE = iS:iS+win
+                    fprintf(fID, '%s ', curMsg{iE});
+                end
+                fprintf(fID, '\n');
+            end
+        end
+        fclose(fID);
+    end
+end
 %% Test automatic paraphrase (Ng's Autoencoders)
 %system('sed "1~3d" input.txt > sentences.txt');
 %system('sed -n "p;N;N" input.txt > labels.txt');
@@ -76,6 +123,17 @@ simMat
 % Perform a context-based word encoding
 % 100232 words in vocab
 % 6162 of those have 10 prototypes each
+fID = fopen('traducted_extended.txt', 'r', 'n', 'UTF-8');
+tline = fgetl(fID);
+% Data structures
+messages = {};
+% Retrieve all messages
+while ischar(tline)
+    curMsg = regexprep(lower(char(tline)), ',|\(|\)|"|!|?|:', '');
+    messages = [messages, curMsg];
+    tline = fgetl(fID);
+end
+fclose(fID);
 addpath(genpath('.'));
 load('wordreps.mat','We');   % load word representations
 load('vocab.mat','vocab','tfidf','numEmbeddings');
@@ -91,14 +149,18 @@ messagesIDs = cell(length(messages), 1);
 messagesPROs = cell(length(messages), 1);
 % Create linguistic statistics
 basicStats = containers.Map({'Poyoyoyo'}, {0});
-semanticStats = zeros(5000, 1);
-semanticEquiv = cell(5000, 1);
-semanticStatsPRO = zeros(5000, 1);
-semanticEquivPRO = cell(5000, 1);
+semanticStats = zeros(100000, 1);
+semanticEquiv = cell(100000, 1);
+semanticStatsPRO = zeros(1, 100000);
+semanticEquivPRO = cell(1, 100000);
 for m = 1:length(messages)
     fprintf('Parsing message %d\n', m);
     % input: a tokenized sentence, one word per cell
-    inputMsg = strsplit(messages{m}, ' ');
+    splitMsg = strsplit(messages{m}, ' ');
+    inputMsg = {};
+    for i = 1:length(splitMsg)
+        if (length(splitMsg{i}) > 3), inputMsg = [inputMsg, splitMsg{i}]; end
+    end
     % output: corresponding vocab id and prototype number for each word
     ids = ones(1,length(inputMsg));
     for i = 1:length(inputMsg)
@@ -114,7 +176,7 @@ for m = 1:length(messages)
                 id = find(strcmp('NNNUMMM',vocab));
             end
         end
-        if isempty(id) || id > 5000  % only use the top 5000 most frequent words
+        if isempty(id) || id > 100000  % only use the top 100000 most frequent words
             id = 1;
         end
         ids(i) = id;
@@ -140,9 +202,9 @@ for m = 1:length(messages)
             pros(i) = cluster;
         end
         semanticStats(ids(i)) = semanticStats(ids(i)) + 1;
-        semanticEquiv{ids(i)} = [semanticEquiv{ids(i)}, inputMsg{i-5}];
+        semanticEquiv{ids(i)} = [semanticEquiv{ids(i)}, inputMsg(i-5)];
         semanticStatsPRO(ids(i)) = semanticStatsPRO(ids(i)) + 1;
-        semanticEquivPRO{ids(i)} = [semanticEquivPRO{ids(i)}, inputMsg{i-5}];
+        semanticEquivPRO{ids(i)} = [semanticEquivPRO{ids(i)}, inputMsg(i-5)];
     end
     messagesIDs{m} = ids(6:end-5);
     messagesPROs{m} = pros(6:end-5);
@@ -156,37 +218,133 @@ for i = 1:100
 end
 [sStats, idS] = sort(semanticStats, 'descend');
 for i = 1:10
-    disp(
-    fprintf('%d\t%s\n', semanticStats(idS(i)), strjoin(unique(semanticEquiv{ids(i)})));
+    if ~isempty(unique(semanticEquiv{idS(i)}))
+        fprintf('%d - %d\t%s\n', idS(i), semanticStats(idS(i)), strjoin(unique(semanticEquiv{idS(i)})));
+    else
+        fprintf('%d\t%s\n', semanticStats(idS(i)), '?');
+    end
 end
 [sStats, idS] = sort(semanticStatsPRO, 'descend');
-for i = 1:10
-    fprintf('%d\t%s\n', semanticStatsPRO(idS(i)), strjoin(unique(semanticEquivPRO{ids(i)})));
+for i = 1:100
+    if ~isempty(unique(semanticEquivPRO{idS(i)}))
+        fprintf('%d - %d\t%s\n', idS(i), semanticStatsPRO(idS(i)), strjoin(unique(semanticEquivPRO{idS(i)})));
+    else
+        fprintf('%d\t%s\n', semanticStatsPRO(idS(i)), '?');
+    end
 end
 %% Now for the real deal ... We have to cross-correlate messages
 distMatrix = zeros(length(messages), length(messages));
 for m1 = 1:(length(messages)-1)
-    fprintf('Seeding message %d\n', m1);
+    %fprintf('Seeding message %d\n', m1);
+    printed = 0;
     for m2 = (m1+1):length(messages)
         coOccur = 0;
         for i = 1:length(messagesIDs{m1})
             for j = 1:length(messagesIDs{m2})
-                if (messagesIDs{m1}(i) == messagesIDs{m2}(j) && messagesIDs{m1}(i) ~= 1 && messagesIDs{m2}(j) ~= 1 && messagesIDs{m1}(i) ~= 770 && messagesIDs{m2}(j) ~= 770), coOccur = coOccur + 1; end
+                if (messagesIDs{m1}(i) == messagesIDs{m2}(j) && messagesIDs{m1}(i) > 60 && messagesIDs{m1}(i) ~= 770), coOccur = coOccur + 1; end
             end
         end
         coOccur = coOccur / (length(messagesIDs{m1}) + length(messagesIDs{m2}));
+        %fprintf('%f,', coOccur);
         %disp(coOccur);
-        if (coOccur > 0.45)
-            if ((length(messagesIDs{m1}) == length(messagesIDs{m2})) && ((messagesIDs{m1} - messagesIDs{m2}) == 0))
+        if (coOccur >= 0.25 && abs(m2 - m1) > 10)
+            if ((length(messagesIDs{m1}) == length(messagesIDs{m2})) && (sum(messagesIDs{m1} - messagesIDs{m2}) == 0))
                 continue;
             end
-            disp(coOccur);
-            disp(m1);
-            disp(m2);
-            disp(messages{m1});
-            disp(messages{m2});
-            %disp(messagesIDs{m1});
-            %disp(messagesIDs{m2});
+            if (printed == 0)
+                fprintf('%d - %s\n', m1, messages{m1});
+                printed = 1;
+            end
+            fprintf('     * [%f] %d - %s\n', coOccur, m2, messages{m2});
+        end
+    end
+    %fprintf('\n');
+end
+%% Same analysis with the GloVe algorithm
+addpath(genpath('.'));
+if(~exist('vocab_file')) 
+    vocab_file = 'vocab.txt';
+end
+if(~exist('vectors_file')) 
+    vectors_file = 'vectors.bin';
+end
+fid = fopen(vocab_file, 'r');
+words = textscan(fid, '%s %f');
+fclose(fid);
+words = words{1};
+vocab_size = length(words);
+global wordMap
+wordMap = containers.Map(words(1:vocab_size),1:vocab_size);
+fid = fopen(vectors_file,'r');
+fseek(fid,0,'eof');
+vector_size = ftell(fid)/16/vocab_size - 1;
+frewind(fid);
+WW = fread(fid, [vector_size+1 2*vocab_size], 'double')'; 
+fclose(fid);
+W1 = WW(1:vocab_size, 1:vector_size); % word vectors
+W2 = WW(vocab_size+1:end, 1:vector_size); % context (tilde) word vectors
+W = W1 + W2; %Evaluate on sum of word vectors
+W = bsxfun(@rdivide,W,sqrt(sum(W.*W,2))); %normalize vectors before evaluation
+%
+% Semantic vectors evaluation
+%
+split_size = 100; %to avoid memory overflow, could be increased/decreased depending on system and vocab size
+correct_sem = 0; %count correct semantic questions
+correct_syn = 0; %count correct syntactic questions
+correct_tot = 0; %count correct questions
+count_sem = 0; %count all semantic questions
+count_syn = 0; %count all syntactic questions
+count_tot = 0; %count all questions
+full_count = 0; %count all questions, including those with unknown words
+if wordMap.isKey('<unk>'), unkkey = wordMap('<unk>'); else unkkey = 0; end
+for m = 1:length(messages)
+    fprintf('Parsing message %d\n', m);
+    % input: a tokenized sentence, one word per cell
+    splitMsg = strsplit(regexprep(messages{m} ,',|(|)(', ''), ' ');
+    inputMsg = {};
+    for i = 1:length(splitMsg)
+        if (length(splitMsg{i}) > 3), inputMsg = [inputMsg, splitMsg{i}]; end
+    end
+    % output: corresponding vocab id and prototype number for each word
+    ids = cellfun(@WordLookup,inputMsg);
+    %disp(ids);
+    %disp(inputMsg);
+    for i = 1:length(ids)
+        if (ids(i) == 0), continue; end
+        semanticStats(ids(i)) = semanticStats(ids(i)) + 1;
+        semanticEquiv{ids(i)} = [semanticEquiv{ids(i)}, inputMsg{i}];
+    end
+    messagesIDs{m} = ids(ids ~= 0);
+end
+%% Now for the real deal ... We have to cross-correlate messages
+distMatrix = zeros(length(messages), length(messages));
+for m1 = 1:(length(messages)-1)
+    %fprintf('Seeding message %d\n', m1);
+    printed = 0;
+    if (length(messagesIDs{m1}) < 4), continue; end
+    for m2 = (m1+5):length(messages)
+        if (length(messagesIDs{m2}) < 4), continue; end
+        coOccur = 0;
+        distVec = zeros(length(messagesIDs{m1}), 1);
+        for i = 1:length(messagesIDs{m1})
+            wordVecM = repmat(W(messagesIDs{m1}(i), :), length(messagesIDs{m2}), 1);
+            distVec(i) = min(sqrt(sum((wordVecM - W(messagesIDs{m2}, :)) .^ 2, 2)));
+            coOccur = coOccur + distVec(i);
+        end
+        if (sum(distVec == 0) < 2), continue; end
+        % Normalize co-occurence
+        coOccur = coOccur / (length(messagesIDs{m1}));
+        %disp(coOccur);
+        if (coOccur < 0.3)
+            if ((length(messagesIDs{m1}) == length(messagesIDs{m2})) && (sum(messagesIDs{m1} - messagesIDs{m2}) == 0))
+                continue;
+            end
+            if (printed == 0)
+                fprintf('%d - %s\n', m1, messages{m1});
+                printed = 1;
+            end
+            fprintf('     * [%f] %d - %s\n', coOccur, m2, messages{m2});
+            
         end
     end
 end
